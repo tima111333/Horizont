@@ -1,0 +1,1 @@
+import{dt as e,ft as t,g as n,m as r,v as i}from"./index-Rph-gfxM.js";var a=t(e(),1);function o(e,t){let o=n(e),s=(0,a.useRef)(null),c=(0,a.useRef)(0);return i((e,n)=>{if(r.act!==o)return;let i=Math.min(n,.1);c.current+=i,t({p:r.local[o],t:c.current,dt:i,state:e})},-2),s}export{o as t};
