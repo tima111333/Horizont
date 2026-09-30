@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# служебные снимки и трассы стенда — сотни мегабайт
+docs/shots/
+docs/trace.json
+*.log

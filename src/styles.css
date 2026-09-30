@@ -1,0 +1,856 @@
+:root {
+  --ink: #ece7df;
+  --ink-dim: rgba(236, 231, 223, 0.62);
+  --ink-faint: rgba(236, 231, 223, 0.28);
+  --line: rgba(236, 231, 223, 0.18);
+  --amber: #f0c38a;
+  --bg: #000;
+  --f-title: 'Unbounded', 'Segoe UI', sans-serif;
+  --f-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --gutter: clamp(16px, 4vw, 64px);
+  --bar: 0px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+body.has-cursor,
+body.has-cursor * {
+  cursor: none !important;
+}
+::selection {
+  background: rgba(240, 195, 138, 0.35);
+}
+
+/* полотно прокрутки — невидимый слой, его крутит Lenis; всё видимое лежит в fixed-слоях */
+.scroller {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+  z-index: -1;
+}
+.track {
+  position: relative;
+  width: 1px;
+  pointer-events: none;
+}
+
+.stage {
+  position: fixed !important;
+  inset: 0;
+  z-index: 0;
+}
+.stage-canvas {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+.veil {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* ─── шторки 2.39:1 ─────────────────────────────────────────── */
+.letterbox {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.letterbox i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--bar);
+  background: #000;
+}
+.letterbox i:first-child {
+  top: 0;
+}
+.letterbox i:last-child {
+  bottom: 0;
+}
+
+/* ─── подписи ───────────────────────────────────────────────── */
+.captions {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.cap {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  max-width: min(38rem, 86vw);
+  /* два слоя: тонкий контур держит буквы на светлом небе Миллер, широкий — мягкая тень */
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.35), 0 1px 22px rgba(0, 0, 0, 0.6);
+  will-change: transform, opacity, filter;
+}
+/* под каждой подписью — размытая тёмная подложка: на светлых сценах (Миллер, станция)
+   текст без неё тонет, на тёмных её не видно */
+.cap::before {
+  content: '';
+  position: absolute;
+  inset: -40% -14%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+.cap[data-pos='left'] {
+  left: var(--gutter);
+  bottom: calc(var(--bar) + clamp(72px, 14vh, 150px));
+}
+.cap[data-pos='right'] {
+  right: calc(var(--gutter) + 64px);
+  bottom: calc(var(--bar) + clamp(72px, 14vh, 150px));
+  text-align: right;
+}
+.cap[data-pos='center'] {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  text-align: center;
+  /* без width: max-content блок у left: 50% сжимается до половины экрана */
+  width: max-content;
+  max-width: min(64rem, 88vw);
+}
+.cap[data-pos='low'] {
+  left: 50%;
+  bottom: calc(var(--bar) + 14vh);
+  translate: -50% 0;
+  text-align: center;
+  width: max-content;
+  max-width: min(64rem, 88vw);
+}
+.cap p {
+  text-wrap: pretty;
+}
+.cap[data-pos='center'] p {
+  text-wrap: balance;
+}
+.cap .meta {
+  display: block;
+  text-wrap: balance;
+  margin-top: 1.1em;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.cap[data-kind='title'] {
+  /* заголовок — одно слово, переносить его по буквам нельзя */
+  max-width: calc(100vw - 2 * var(--gutter) - 90px);
+}
+.cap[data-kind='title'] h2 {
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--f-title);
+  font-weight: 300;
+  font-size: clamp(34px, 6.6vw, 104px);
+  line-height: 0.95;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-right: -0.16em;
+}
+.cap[data-kind='title'] h2 span {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+.cap[data-kind='title'][data-pos='center'] {
+  max-width: 94vw;
+}
+.cap[data-kind='title'][data-pos='center'] h2 {
+  font-size: clamp(34px, 7vw, 124px);
+  letter-spacing: 0.3em;
+  margin-right: -0.3em;
+  white-space: nowrap;
+}
+.cap[data-kind='title'] .num {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--amber);
+  margin-bottom: 1.4em;
+}
+.cap[data-kind='quote'] p {
+  margin: 0;
+  font-weight: 300;
+  font-style: italic;
+  font-size: clamp(19px, 2vw, 28px);
+  line-height: 1.4;
+}
+.cap[data-kind='quote'] p::before {
+  content: '«';
+  color: var(--amber);
+  margin-right: 0.1em;
+}
+.cap[data-kind='quote'] p::after {
+  content: '»';
+  color: var(--amber);
+  margin-left: 0.05em;
+}
+.cap[data-kind='log'] p {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: clamp(14px, 1.25vw, 17px);
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  padding-left: 1.1em;
+  border-left: 1px solid var(--amber);
+}
+.cap[data-kind='log'][data-pos='right'] p {
+  padding-left: 0;
+  padding-right: 1.1em;
+  border-left: 0;
+  border-right: 1px solid var(--amber);
+}
+.cap[data-kind='line'] p {
+  margin: 0;
+  font-family: var(--f-title);
+  font-weight: 300;
+  font-size: clamp(18px, 2.3vw, 34px);
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+}
+
+/* ─── хром: прогресс, звук ─────────────────────────────────── */
+.chrome {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 1.6s cubic-bezier(0.65, 0, 0.35, 1) 0.6s;
+}
+.chrome[data-started='true'] {
+  opacity: 1;
+}
+.chrome > * {
+  pointer-events: auto;
+}
+
+.progress {
+  position: fixed;
+  right: calc(var(--gutter) * 0.6);
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+.progress .rail {
+  position: absolute;
+  right: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--line);
+}
+.progress .fill {
+  position: absolute;
+  inset: 0 0 auto 0;
+  background: var(--ink);
+  height: 0;
+}
+.progress button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: none;
+  border: 0;
+  padding: 9px 0;
+  color: var(--ink-faint);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: color 0.6s;
+}
+.progress button .t {
+  opacity: 0;
+  translate: 8px 0;
+  transition: opacity 0.6s cubic-bezier(0.65, 0, 0.35, 1), translate 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  white-space: nowrap;
+}
+.progress button .dot {
+  width: 11px;
+  height: 11px;
+  display: grid;
+  place-items: center;
+}
+.progress button .dot::after {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: all 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.progress button[data-on='true'] {
+  color: var(--ink);
+}
+.progress button[data-on='true'] .dot::after {
+  width: 9px;
+  height: 9px;
+  background: transparent;
+  border: 1px solid var(--amber);
+}
+.progress button[data-on='true'] .t,
+.progress:hover button .t {
+  opacity: 1;
+  translate: 0 0;
+}
+.progress button:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.hud-act {
+  position: fixed;
+  left: var(--gutter);
+  top: calc(var(--bar) + 26px);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: flex;
+  gap: 1.4em;
+  pointer-events: none;
+  transition: top 1.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.hud-act b {
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.sound {
+  position: fixed;
+  left: var(--gutter);
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: 0;
+  color: var(--ink-dim);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 8px 0;
+}
+.sound:hover {
+  color: var(--ink);
+}
+.sound .eq {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 12px;
+}
+.sound .eq i {
+  width: 2px;
+  height: 100%;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: scaleY(0.2);
+  transition: transform 0.4s;
+}
+.sound[data-on='true'] .eq i {
+  animation: eq 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+}
+.sound[data-on='true'] .eq i:nth-child(2) {
+  animation-duration: 0.8s;
+}
+.sound[data-on='true'] .eq i:nth-child(3) {
+  animation-duration: 1.4s;
+}
+.sound[data-on='true'] .eq i:nth-child(4) {
+  animation-duration: 0.95s;
+}
+@keyframes eq {
+  from {
+    transform: scaleY(0.2);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.auto {
+  position: fixed;
+  left: calc(var(--gutter) + 190px);
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  color: var(--ink-dim);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 8px 0;
+  white-space: nowrap;
+}
+.auto:hover {
+  color: var(--ink);
+}
+.auto .ico {
+  width: 12px;
+  height: 12px;
+  display: grid;
+  place-items: center;
+}
+.auto .pause {
+  width: 7px;
+  height: 9px;
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+}
+.auto .play {
+  width: 0;
+  height: 0;
+  border-left: 8px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+.auto[data-run='true'] {
+  color: var(--ink);
+}
+.auto[data-run='true'] .pause {
+  border-color: var(--amber);
+}
+
+/* ─── оверлей старта ───────────────────────────────────────── */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(120% 90% at 50% 60%, #0d0a07 0%, #000 70%);
+  text-align: center;
+  padding: var(--gutter);
+}
+.intro .inner {
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+}
+.intro .eyebrow {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.intro h1 {
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--f-title);
+  font-weight: 300;
+  font-size: clamp(40px, 8vw, 120px);
+  letter-spacing: 0.34em;
+  margin-right: -0.34em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.intro .lede {
+  max-width: 34rem;
+  font-weight: 300;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.6;
+  color: var(--ink-dim);
+  margin: 0;
+}
+.intro .start {
+  position: relative;
+  margin-top: 12px;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1.7;
+  transition: border-color 0.8s, background 0.8s;
+}
+.intro .start svg {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  rotate: -90deg;
+}
+.intro .start circle {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 1;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.intro .start:not(:disabled):hover {
+  background: rgba(240, 195, 138, 0.06);
+  border-color: var(--amber);
+}
+.intro .start:disabled {
+  color: var(--ink-faint);
+}
+.intro .mute {
+  background: none;
+  border: 0;
+  color: var(--ink-faint);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 8px;
+}
+.intro .mute:hover {
+  color: var(--ink-dim);
+}
+.intro .fine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  padding: 0 var(--gutter);
+}
+
+/* ─── часы Миллер ───────────────────────────────────────────── */
+.clock {
+  position: fixed;
+  right: calc(var(--gutter) + 64px);
+  top: calc(var(--bar) + 22px);
+  z-index: 11;
+  font-family: var(--f-mono);
+  text-align: right;
+  opacity: 0;
+  pointer-events: none;
+  display: grid;
+  gap: 10px;
+}
+.clock .row {
+  display: grid;
+  gap: 2px;
+}
+.clock .k {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.clock .v {
+  font-size: clamp(16px, 1.6vw, 22px);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+.clock .v.earth {
+  color: var(--amber);
+}
+
+/* ─── послание в тессеракте ────────────────────────────────── */
+.message {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 11;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  width: min(84rem, 92vw);
+}
+.message .code {
+  font-family: var(--f-mono);
+  font-size: clamp(12px, 1.05vw, 15px);
+  letter-spacing: 0.16em;
+  line-height: 1.8;
+  color: var(--amber);
+  min-height: 1.8em;
+  text-wrap: balance;
+}
+.message .text {
+  margin-top: 18px;
+  font-family: var(--f-title);
+  font-weight: 300;
+  font-size: clamp(22px, 3.6vw, 60px);
+  letter-spacing: 0.2em;
+  margin-right: -0.2em;
+  text-transform: uppercase;
+  white-space: pre;
+  min-height: 1.2em;
+}
+.message .text span {
+  display: inline-block;
+}
+
+/* ─── титры ────────────────────────────────────────────────── */
+.credits {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+.credits::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 55% at 50% 50%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+.credits .inner {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  justify-items: center;
+  padding: var(--gutter);
+}
+.credits h3 {
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--f-title);
+  font-weight: 300;
+  font-size: clamp(30px, 5vw, 76px);
+  letter-spacing: 0.3em;
+  margin-right: -0.3em;
+  text-transform: uppercase;
+}
+.credits p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--ink-dim);
+  font-weight: 300;
+  line-height: 1.6;
+}
+.credits .roll {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px 22px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+}
+.credits .roll dt {
+  text-align: right;
+  color: var(--ink-faint);
+}
+.credits .roll dd {
+  margin: 0;
+  white-space: nowrap;
+}
+.credits .cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 10px;
+}
+.credits .cta a,
+.credits .cta button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(8, 7, 6, 0.55);
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: border-color 0.5s, background 0.5s;
+}
+.credits .cta a:hover,
+.credits .cta button:hover {
+  border-color: var(--amber);
+  background: rgba(240, 195, 138, 0.08);
+}
+.credits .disclaimer {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  max-width: 40rem;
+}
+
+/* ─── о проекте ─────────────────────────────────────────────── */
+.about {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  padding: var(--gutter);
+}
+.about .card {
+  max-width: 40rem;
+  max-height: 86vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  padding: clamp(22px, 4vw, 44px);
+  background: rgba(10, 9, 8, 0.9);
+}
+.about h4 {
+  margin: 0 0 18px;
+  font-family: var(--f-title);
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.about p,
+.about li {
+  color: var(--ink-dim);
+  font-weight: 300;
+  line-height: 1.65;
+}
+.about button {
+  margin-top: 18px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ─── курсор ────────────────────────────────────────────────── */
+.cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+.cursor .ring {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -19px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  transition: width 0.45s cubic-bezier(0.65, 0, 0.35, 1), height 0.45s cubic-bezier(0.65, 0, 0.35, 1), margin 0.45s cubic-bezier(0.65, 0, 0.35, 1), background 0.45s;
+}
+.cursor[data-hover='true'] .ring {
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.cursor .dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bar) + 26px);
+  translate: -50% 0;
+  z-index: 11;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  pointer-events: none;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.hint i {
+  width: 1px;
+  height: 34px;
+  background: linear-gradient(var(--ink), transparent);
+  animation: hint 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform-origin: top;
+}
+@keyframes hint {
+  0% {
+    transform: scaleY(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sound[data-on='true'] .eq i,
+  .hint i {
+    animation: none;
+  }
+}
