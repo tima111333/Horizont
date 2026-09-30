@@ -5,7 +5,7 @@ import { actIndex } from '../story/acts'
 import { jumpToAct, onTick } from '../core/scroll'
 
 // ссылка на репозиторий — подставьте свою
-export const REPO_URL = 'https://github.com/'
+export const REPO_URL = 'https://github.com/tima111333/Horizont'
 
 const EI = actIndex('epilogue')
 
