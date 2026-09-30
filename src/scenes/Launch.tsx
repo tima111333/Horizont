@@ -226,6 +226,9 @@ function Ranger({ spin, pos }: { spin: { angle: number }; pos: THREE.Vector3 }) 
     () => new THREE.SpriteMaterial({ map: glowTexture(), color: new THREE.Color(1, 0.9, 0.7), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }),
     [],
   )
+  // у каждой вспышки свой материал (своя прозрачность) — создаются один раз, а не на каждой перерисовке
+  const rcsMats = useMemo(() => Array.from({ length: 5 }, () => rcs.clone()), [rcs])
+  useEffect(() => () => rcsMats.forEach((m) => m.dispose()), [rcsMats])
   const puffs = useRef<(THREE.Sprite | null)[]>([])
   const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
   useScrollScene('launch', ({ p, t }) => {
@@ -273,7 +276,7 @@ function Ranger({ spin, pos }: { spin: { angle: number }; pos: THREE.Vector3 }) 
         <mesh key={x} geometry={plumeGeo} material={plume} position={[x, 0.02, 1.65]} rotation={[-Math.PI / 2, 0, 0]} frustumCulled={false} />
       ))}
       {puffAt.map((q, i) => (
-        <sprite key={i} ref={(s) => (puffs.current[i] = s)} material={rcs.clone()} position={q} scale={[0.5, 0.5, 1]} />
+        <sprite key={i} ref={(s) => (puffs.current[i] = s)} material={rcsMats[i]} position={q} scale={[0.5, 0.5, 1]} />
       ))}
       <sprite material={flash} position={[0, RANGER_DOCK_Y, RANGER_DOCK_FACE - 0.05]} scale={[2.2, 2.2, 1]} />
     </group>
